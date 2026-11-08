@@ -1,0 +1,38 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: cinecircle-backend
+  data:
+    mongodb:
+      uri: ${MONGODB_URI:mongodb://localhost:27017/cinecircle}
+      auto-index-creation: true
+      gridfs:
+        bucket: images
+  servlet:
+    multipart:
+      max-file-size: 5MB
+      max-request-size: 6MB
+  jackson:
+    default-property-inclusion: always
+
+app:
+  # Public base URL of this backend, used to build absolute image URLs (/api/images/{id}).
+  public-url: ${APP_PUBLIC_URL:http://localhost:8080}
+  tmdb:
+    # Optional at startup: without it the app boots with a warning, movie endpoints return
+    # 502 TMDB_UNAVAILABLE and seeding skips posts.
+    token: ${TMDB_API_TOKEN:}
+    base-url: https://api.themoviedb.org/3
+    timeout: 5s
+  jwt:
+    secret: ${JWT_SECRET}
+    ttl: 7d
+  seed: ${APP_SEED:true}
+  cors:
+    origins: http://localhost:5173
+
+logging:
+  level:
+    com.cinecircle: INFO
