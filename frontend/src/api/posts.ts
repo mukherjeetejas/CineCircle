@@ -40,12 +40,26 @@ export function usePopular(window: PopularWindow) {
   })
 }
 
-export function usePost(id: string | undefined) {
+export const SPOILER_POLL_INTERVAL_MS = 3_000
+export const SPOILER_POLL_WINDOW_MS = 30_000
+
+/**
+ * Post detail. With `pollPendingUntil` (epoch ms), refetches every 3 s while the AI spoiler check is
+ * still PENDING, until that deadline (FEATURES-V2.md: "every 3 s for up to 30 s").
+ */
+export function usePost(id: string | undefined, opts: { pollPendingUntil?: number } = {}) {
+  const { pollPendingUntil } = opts
   return useQuery({
     queryKey: qk.post(id ?? ''),
     queryFn: () => apiFetch<PostDetail>(`/posts/${encodeURIComponent(id!)}`, { silent: true }),
     enabled: !!id,
     retry: false,
+    refetchInterval: (query) =>
+      pollPendingUntil !== undefined &&
+      query.state.data?.spoiler?.aiStatus === 'PENDING' &&
+      Date.now() + SPOILER_POLL_INTERVAL_MS <= pollPendingUntil
+        ? SPOILER_POLL_INTERVAL_MS
+        : false,
   })
 }
 

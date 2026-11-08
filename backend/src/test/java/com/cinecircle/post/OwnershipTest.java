@@ -8,6 +8,7 @@ import com.cinecircle.common.ErrorCode;
 import com.cinecircle.follow.FollowService;
 import com.cinecircle.image.ImageService;
 import com.cinecircle.movie.MovieService;
+import com.cinecircle.spoiler.SpoilerCheckService;
 import com.cinecircle.user.UserCounters;
 import com.cinecircle.user.UserDirectory;
 import com.cinecircle.user.UserMapper;
@@ -44,10 +45,11 @@ class OwnershipTest {
     @Mock UserCounters userCounters;
     @Mock MongoTemplate mongo;
     @Mock UserMapper userMapper;
+    @Mock SpoilerCheckService spoilerChecks;
 
     private PostService postService() {
         return new PostService(posts, queries, assembler, movieService, followService, imageService, votes,
-                comments, userDirectory, userCounters, mongo);
+                comments, userDirectory, userCounters, mongo, spoilerChecks);
     }
 
     @Test

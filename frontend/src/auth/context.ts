@@ -6,6 +6,8 @@ export type AuthStatus = 'loading' | 'authenticated' | 'anonymous'
 export interface AuthContextValue {
   status: AuthStatus
   user: UserProfile | null
+  /** Current JWT (only for "Copy my access token" in Settings — never render it). */
+  token: string | null
   /** Store the token from a login/register response and load the profile. */
   signIn: (res: AuthResponse) => Promise<void>
   signOut: () => void

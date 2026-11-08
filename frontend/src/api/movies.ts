@@ -2,7 +2,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { apiFetch } from './client'
 import { PAGE_SIZE, qk } from './keys'
 import { firstPage, nextPageParam } from './paging'
-import type { MovieDetail, MoviePostSort, MovieSummary, Page, PostSummary } from '../types'
+import type { MovieDetail, MoviePostSort, MovieSummary, Page, PostSummary, ReviewSummary } from '../types'
 
 export function searchMovies(q: string, page = 0, signal?: AbortSignal) {
   return apiFetch<Page<MovieSummary>>('/movies/search', { query: { q, page }, signal, silent: true })
@@ -50,6 +50,21 @@ export function useMovie(tmdbId: number | undefined) {
     queryFn: () => apiFetch<MovieDetail>(`/movies/${tmdbId}`, { silent: true }),
     enabled: isValidTmdbId(tmdbId),
     staleTime: 5 * 60_000,
+    retry: false,
+  })
+}
+
+/**
+ * AI review summary. `silent`: this query never triggers the global error toast — the card handles
+ * every error itself (NOT_ENOUGH_REVIEWS → empty state, SUMMARY_UNAVAILABLE and anything else → hidden).
+ * No retries: a 502 means the LLM call already failed server-side; retrying just doubles the wait.
+ */
+export function useMovieSummary(tmdbId: number | undefined) {
+  return useQuery({
+    queryKey: qk.movieSummary(isValidTmdbId(tmdbId) ? tmdbId : -1),
+    queryFn: ({ signal }) => apiFetch<ReviewSummary>(`/movies/${tmdbId}/summary`, { silent: true, signal }),
+    enabled: isValidTmdbId(tmdbId),
+    staleTime: 10 * 60_000,
     retry: false,
   })
 }

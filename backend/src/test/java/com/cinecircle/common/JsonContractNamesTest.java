@@ -6,6 +6,10 @@ import com.cinecircle.post.dto.FeedSource;
 import com.cinecircle.post.dto.PostDetail;
 import com.cinecircle.post.dto.PostMovie;
 import com.cinecircle.post.dto.PostSummary;
+import com.cinecircle.spoiler.AiSpoilerStatus;
+import com.cinecircle.spoiler.SpoilerInfo;
+import com.cinecircle.summary.ReviewSummary;
+import com.cinecircle.summary.Sentiment;
 import com.cinecircle.user.dto.UserProfile;
 import com.cinecircle.user.dto.UserSummary;
 import com.cinecircle.vote.VoteResponse;
@@ -50,17 +54,43 @@ class JsonContractNamesTest {
 
     @Test
     void postSummaryAndDetail() {
+        SpoilerInfo spoiler = SpoilerInfo.of(true, AiSpoilerStatus.SPOILER, true, "Reveals the ending");
         PostSummary s = new PostSummary("p1", USER, new PostMovie(603, "The Matrix", 1999, null), "t", "b", 9,
-                true, null, 1, 2, true, true, NOW, FeedSource.POPULAR);
+                true, spoiler, null, 1, 2, true, true, NOW, FeedSource.POPULAR);
         assertThat(fields(s)).containsExactly("id", "author", "movie", "title", "bodyPreview", "rating",
-                "containsSpoilers", "imageUrl", "upvoteCount", "commentCount", "upvotedByMe", "isMine",
+                "containsSpoilers", "spoiler", "imageUrl", "upvoteCount", "commentCount", "upvotedByMe", "isMine",
                 "createdAt", "source");
         assertThat(fields(tree(s).get("movie"))).containsExactly("tmdbId", "title", "releaseYear", "posterUrl");
 
         PostDetail d = new PostDetail("p1", USER, new PostMovie(603, "The Matrix", 1999, null), "t", "b", "body",
-                9, false, null, 0, 0, false, false, NOW, null);
-        assertThat(fields(d)).contains("body", "containsSpoilers", "upvotedByMe", "isMine")
+                9, false, SpoilerInfo.of(false, null, false, null), null, 0, 0, false, false, NOW, null);
+        assertThat(fields(d)).contains("body", "containsSpoilers", "spoiler", "upvotedByMe", "isMine")
                 .doesNotContain("source", "mine", "private");
+    }
+
+    @Test
+    void spoilerObject() {
+        JsonNode n = tree(SpoilerInfo.of(false, AiSpoilerStatus.SPOILER, true, "Reveals the ending"));
+        assertThat(fields(n)).containsExactly("flagged", "source", "aiStatus", "aiReason", "titleHidden");
+        assertThat(n.get("flagged").asBoolean()).isTrue();
+        assertThat(n.get("source").asText()).isEqualTo("AI");
+        assertThat(n.get("aiStatus").asText()).isEqualTo("SPOILER");
+        assertThat(n.get("titleHidden").asBoolean()).isTrue();
+
+        // pre-v2 post (status missing) serialises as UNCHECKED with a null reason (key still present)
+        JsonNode old = tree(SpoilerInfo.of(false, null, false, null));
+        assertThat(old.get("aiStatus").asText()).isEqualTo("UNCHECKED");
+        assertThat(old.has("aiReason")).isTrue();
+        assertThat(old.get("aiReason").isNull()).isTrue();
+    }
+
+    @Test
+    void reviewSummary() {
+        ReviewSummary r = new ReviewSummary(603, "Loved it", List.of("Visuals"), List.of(), Sentiment.POSITIVE, 8.5,
+                12, NOW, false);
+        assertThat(fields(r)).containsExactly("tmdbId", "summary", "pros", "cons", "sentiment", "avgRating",
+                "basedOnCount", "generatedAt", "stale");
+        assertThat(tree(r).get("generatedAt").asText()).isEqualTo("2026-01-01T00:00:00Z");
     }
 
     @Test

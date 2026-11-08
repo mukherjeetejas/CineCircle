@@ -1,4 +1,4 @@
-import { Ban, Clapperboard, EyeOff, ImageIcon, Upload } from 'lucide-react'
+import { Ban, Bot, Clapperboard, EyeOff, ImageIcon, Upload } from 'lucide-react'
 import { useState, type FormEvent } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate, useSearchParams } from 'react-router-dom'
@@ -90,6 +90,13 @@ export function SubmitPage() {
       {
         onSuccess: (post) => {
           toast.success('Review posted. Main character energy.')
+          // AI flagged it although the author didn't tick the toggle (source AI, not BOTH).
+          if (!spoilers && post.spoiler?.aiStatus === 'SPOILER') {
+            toast('Heads up: our AI spotted spoilers, so your review will be blurred for readers.', {
+              icon: <Bot className="h-5 w-5 shrink-0 text-amber" aria-hidden />,
+              duration: 7000,
+            })
+          }
           navigate(`/posts/${post.id}`, { replace: true })
         },
         onError: (err) => {
@@ -232,6 +239,10 @@ export function SubmitPage() {
               />
             </span>
           </label>
+          <p className="-mt-3 flex items-center gap-1.5 px-1 text-xs text-muted">
+            <Bot className="h-3.5 w-3.5 text-amber" aria-hidden />
+            Our AI also checks every review for spoilers.
+          </p>
         </section>
 
         {/* 3. image */}

@@ -12,6 +12,8 @@ import com.cinecircle.movie.MovieService;
 import com.cinecircle.post.dto.CreatePostRequest;
 import com.cinecircle.post.dto.PostDetail;
 import com.cinecircle.post.dto.PostSummary;
+import com.cinecircle.spoiler.AiSpoilerStatus;
+import com.cinecircle.spoiler.SpoilerCheckService;
 import com.cinecircle.user.User;
 import com.cinecircle.user.UserCounters;
 import com.cinecircle.user.UserDirectory;
@@ -48,6 +50,7 @@ public class PostService {
     private final UserDirectory userDirectory;
     private final UserCounters userCounters;
     private final MongoTemplate mongo;
+    private final SpoilerCheckService spoilerChecks;
     private final Clock clock = Clock.systemUTC();
 
     // ------------------------------------------------------------------ create
@@ -94,6 +97,8 @@ public class PostService {
                 .upvoteCount(0)
                 .commentCount(0)
                 .hotScore(HotScore.compute(0, now))
+                .aiSpoilerStatus(spoilerChecks.initialStatus())
+                .aiSpoilerAttempts(0)
                 .createdAt(now)
                 .updatedAt(now)
                 .build();
@@ -106,6 +111,10 @@ public class PostService {
             throw e;
         }
         userCounters.incPosts(author.getId(), 1);
+        if (post.getAiSpoilerStatus() == AiSpoilerStatus.PENDING) {
+            // synchronous AI spoiler check (8 s); never fails creation - on error the post stays PENDING
+            post = spoilerChecks.checkNow(post, movie);
+        }
         return assembler.toDetail(post, viewerId);
     }
 

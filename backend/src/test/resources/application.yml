@@ -28,6 +28,12 @@ app:
     secret: test-secret-test-secret-test-secret-1234
     ttl: 7d
   seed: false
+  llm:
+    # blank = LLM disabled; tests that need it mock LlmClient
+    api-key: ""
+    model: test-model
+  scheduling:
+    enabled: false
   cors:
     origins: http://localhost:5173
 

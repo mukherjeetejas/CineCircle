@@ -15,6 +15,10 @@ public enum ErrorCode {
     EMAIL_TAKEN(HttpStatus.CONFLICT),
     TMDB_UNAVAILABLE(HttpStatus.BAD_GATEWAY),
     METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED),
+    /** v2: fewer than 3 eligible reviews for an AI summary. */
+    NOT_ENOUGH_REVIEWS(HttpStatus.NOT_FOUND),
+    /** v2: AI summary could not be generated (LLM disabled, failed, timed out or invalid JSON). */
+    SUMMARY_UNAVAILABLE(HttpStatus.BAD_GATEWAY),
     /** Unexpected server errors (500). */
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 

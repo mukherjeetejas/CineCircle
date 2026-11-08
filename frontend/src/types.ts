@@ -59,6 +59,25 @@ export interface PostMovie {
 
 export type PostSource = 'FOLLOWING' | 'POPULAR'
 
+// ----- v2: AI spoiler detector (FEATURES-V2.md, Feature 3) -----
+
+export type SpoilerSource = 'NONE' | 'AUTHOR' | 'AI' | 'BOTH'
+export type AiSpoilerStatus = 'UNCHECKED' | 'PENDING' | 'CLEAN' | 'SPOILER' | 'SKIPPED'
+
+/**
+ * `flagged = containsSpoilers (author) OR aiStatus == SPOILER`. Note `flagged` is false while
+ * `aiStatus == PENDING`, but the client still blurs PENDING posts.
+ */
+export interface SpoilerInfo {
+  flagged: boolean
+  source: SpoilerSource
+  aiStatus: AiSpoilerStatus
+  /** Vague, spoiler-free reason. Only set when aiStatus is SPOILER. */
+  aiReason: string | null
+  /** aiStatus == SPOILER and the title itself gives something away. */
+  titleHidden: boolean
+}
+
 export interface PostSummary {
   id: string
   author: UserSummary
@@ -74,10 +93,29 @@ export interface PostSummary {
   isMine: boolean
   createdAt: string
   source?: PostSource
+  spoiler: SpoilerInfo
 }
 
 export interface PostDetail extends PostSummary {
   body: string
+}
+
+// ----- v2: AI review summary (FEATURES-V2.md, Feature 1) -----
+
+export type SummarySentiment = 'POSITIVE' | 'MIXED' | 'NEGATIVE'
+
+/** `GET /movies/{tmdbId}/summary` */
+export interface ReviewSummary {
+  tmdbId: number
+  summary: string
+  pros: string[]
+  cons: string[]
+  sentiment: SummarySentiment
+  avgRating: number | null
+  basedOnCount: number
+  generatedAt: string
+  /** True only when a failed regeneration fell back to an older cached copy. */
+  stale: boolean
 }
 
 export interface Comment {

@@ -30,6 +30,17 @@ app:
     secret: ${JWT_SECRET}
     ttl: 7d
   seed: ${APP_SEED:true}
+  llm:
+    # Optional. Anthropic API key for AI review summaries + spoiler detector. Blank = both AI features off.
+    # Deliberately NOT ANTHROPIC_API_KEY (Claude Code reads that one).
+    api-key: ${CINECIRCLE_LLM_API_KEY:}
+    model: ${LLM_MODEL:claude-haiku-5-5}
+    # Sends "thinking":{"type":"disabled"} so thinking tokens don't eat max_tokens. Must be set to false for models
+    # that reject disabled thinking (Opus 5.5, Sonnet 5.5, Fable); the field is then omitted.
+    thinking-disabled: ${LLM_THINKING_DISABLED:true}
+  scheduling:
+    # Background jobs (spoiler retry/backfill every 2 min). Disabled in tests.
+    enabled: true
   cors:
     origins: http://localhost:5173
 

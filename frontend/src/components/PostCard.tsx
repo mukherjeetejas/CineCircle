@@ -3,6 +3,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import { useDeletePost } from '../api/posts'
+import { isTmdbImage, spoilerView } from '../lib/spoiler'
 import { compactNumber, cn, fullDate, postUrl, timeAgo } from '../lib/utils'
 import type { PostDetail, PostSummary } from '../types'
 import { Avatar } from './Avatar'
@@ -11,6 +12,7 @@ import { MovieChip } from './MovieChip'
 import { RatingBadge } from './RatingBadge'
 import { RichText } from './RichText'
 import { SpoilerGuard } from './SpoilerGuard'
+import { SpoilerTags, SpoilerToggle } from './SpoilerTags'
 import { UpvoteButton } from './UpvoteButton'
 
 interface Props {
@@ -30,11 +32,22 @@ export function PostCard({ post, detail = false, onDeleted }: Props) {
   // Backend trims the preview and appends "…" when the body was cut.
   const truncated = !detail && post.bodyPreview.endsWith('…')
 
+  // Spoilers: blur body + CUSTOM image (never TMDB posters) until this reader reveals them for this visit.
+  const spoiler = spoilerView(post)
+  const [revealed, setRevealed] = useState(false)
+  const hidden = spoiler.blurred && !revealed
+  const titleText = hidden && spoiler.titleHidden ? 'Title hidden – contains spoilers' : post.title
+  const blurImage = !!post.imageUrl && !isTmdbImage(post.imageUrl)
+  const bodyId = `post-body-${post.id}`
+  const imageId = `post-image-${post.id}`
+  const titleId = `post-title-${post.id}`
+  const controls = [spoiler.titleHidden && titleId, bodyId, blurImage && imageId].filter(Boolean).join(' ')
+
   const share = async () => {
     const url = postUrl(post.id)
     try {
       if (navigator.share && window.matchMedia('(pointer: coarse)').matches) {
-        await navigator.share({ title: post.title, url })
+        await navigator.share({ title: spoiler.titleHidden ? `A review of ${post.movie.title}` : post.title, url })
         return
       }
       await navigator.clipboard.writeText(url)
@@ -74,28 +87,30 @@ export function PostCard({ post, detail = false, onDeleted }: Props) {
         <div className="mt-2.5 flex flex-wrap items-center gap-2">
           <MovieChip movie={post.movie} />
           <RatingBadge rating={post.rating} />
-          {post.containsSpoilers && (
-            <span className="rounded-full border border-danger/40 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-danger">
-              Spoilers
-            </span>
+          <SpoilerTags view={spoiler} />
+          {spoiler.blurred && (
+            <SpoilerToggle revealed={revealed} onToggle={() => setRevealed((r) => !r)} controls={controls} />
           )}
         </div>
 
         {/* title */}
         {detail ? (
-          <h1 id={`post-title-${post.id}`} className="mt-3 text-2xl font-bold leading-tight sm:text-3xl">
-            {post.title}
+          <h1
+            id={titleId}
+            className={cn('mt-3 text-2xl font-bold leading-tight sm:text-3xl', titleText !== post.title && 'italic text-muted')}
+          >
+            {titleText}
           </h1>
         ) : (
-          <h2 id={`post-title-${post.id}`} className="mt-3 text-lg font-semibold leading-snug">
-            <Link to={href} className="rounded hover:text-amber">
-              {post.title}
+          <h2 id={titleId} className="mt-3 text-lg font-semibold leading-snug">
+            <Link to={href} className={cn('rounded hover:text-amber', titleText !== post.title && 'italic text-muted')}>
+              {titleText}
             </Link>
           </h2>
         )}
 
-        {/* body + image (blurred together when spoilers) */}
-        <SpoilerGuard active={post.containsSpoilers}>
+        {/* body (blurred when spoilers / pending check) */}
+        <SpoilerGuard hidden={hidden} onReveal={() => setRevealed(true)} id={bodyId}>
           {body && (
             <div className={cn('mt-2 text-[15px] text-ink/85', !detail && 'line-clamp-6')}>
               {detail ? <RichText text={body} /> : <p className="whitespace-pre-line break-words">{body}</p>}
@@ -106,7 +121,11 @@ export function PostCard({ post, detail = false, onDeleted }: Props) {
               Read more
             </Link>
           )}
-          {post.imageUrl && (
+        </SpoilerGuard>
+
+        {/* image: an uploaded image is blurred too; TMDB posters never are */}
+        {post.imageUrl && (
+          <SpoilerGuard hidden={hidden && blurImage} onReveal={() => setRevealed(true)} id={imageId}>
             <div className="mt-3 overflow-hidden rounded-xl border border-line bg-surface-2">
               <img
                 src={post.imageUrl}
@@ -115,8 +134,8 @@ export function PostCard({ post, detail = false, onDeleted }: Props) {
                 className={cn('w-full object-cover', detail ? 'max-h-[640px] object-contain' : 'max-h-[480px]')}
               />
             </div>
-          )}
-        </SpoilerGuard>
+          </SpoilerGuard>
+        )}
 
         {/* footer */}
         <div className="mt-3 flex flex-wrap items-center gap-1 text-sm">

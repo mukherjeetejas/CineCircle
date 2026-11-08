@@ -15,6 +15,8 @@ export const qk = {
   trending: ['trending'] as const,
   movie: (tmdbId: number) => ['movies', tmdbId, 'detail'] as const,
   moviePosts: (tmdbId: number, sort: MoviePostSort) => ['movies', tmdbId, 'posts', sort] as const,
+  // Under ['movies', tmdbId] so creating/deleting a post for the movie invalidates it too.
+  movieSummary: (tmdbId: number) => ['movies', tmdbId, 'summary'] as const,
 
   feed: ['feed'] as const,
   popular: (window: PopularWindow) => ['popular', window] as const,

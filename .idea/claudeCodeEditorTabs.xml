@@ -1,20 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ClaudeCodeEditorTabs">
-    <option name="activeSessionId" value="6c90e91c-e048-4f27-83ca-549f77acd5f0" />
+    <option name="activeSessionId" value="dceb3a96-ff64-4d0a-92ff-423e33458910" />
     <option name="openSessionIds">
       <list>
-        <option value="6c90e91c-e048-4f27-83ca-549f77acd5f0" />
+        <option value="4649a79d-0b79-4d0f-b56d-51fd826756c2" />
+        <option value="dceb3a96-ff64-4d0a-92ff-423e33458910" />
       </list>
     </option>
     <option name="sessionPaths">
       <map>
-        <entry key="6c90e91c-e048-4f27-83ca-549f77acd5f0" value="/sessions/a0fff066-b40f-4198-9091-48e641562770" />
+        <entry key="4649a79d-0b79-4d0f-b56d-51fd826756c2" value="/sessions/944957ce-2911-4522-98d2-1890c6b64968" />
+        <entry key="dceb3a96-ff64-4d0a-92ff-423e33458910" value="/sessions/new" />
       </map>
     </option>
     <option name="sessionTitles">
       <map>
-        <entry key="6c90e91c-e048-4f27-83ca-549f77acd5f0" value="App run" />
+        <entry key="4649a79d-0b79-4d0f-b56d-51fd826756c2" value="CineCircle v2 AI summaries, MCP server, spoilers" />
+        <entry key="dceb3a96-ff64-4d0a-92ff-423e33458910" value="Claude Code" />
       </map>
     </option>
   </component>

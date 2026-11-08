@@ -118,7 +118,8 @@ class FeedServiceTest {
     }
 
     private static PostSummary summary(Post p) {
-        return new PostSummary(p.getId(), null, new PostMovie(1, "m", 2020, null), "t", "b", 5, false, null,
+        return new PostSummary(p.getId(), null, new PostMovie(1, "m", 2020, null), "t", "b", 5, false,
+                com.cinecircle.spoiler.SpoilerInfo.of(p), null,
                 0, 0, false, false, p.getCreatedAt(), null);
     }
 }

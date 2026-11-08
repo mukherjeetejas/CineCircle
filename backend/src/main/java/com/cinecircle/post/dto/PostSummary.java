@@ -1,5 +1,6 @@
 package com.cinecircle.post.dto;
 
+import com.cinecircle.spoiler.SpoilerInfo;
 import com.cinecircle.user.dto.UserSummary;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -7,8 +8,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 
 /**
- * {id,author,movie,title,bodyPreview(<=300),rating,containsSpoilers,imageUrl,upvoteCount,commentCount,
- * upvotedByMe,isMine,createdAt,source?} - source is omitted outside the feed.
+ * {id,author,movie,title,bodyPreview(<=300),rating,containsSpoilers,spoiler,imageUrl,upvoteCount,commentCount,
+ * upvotedByMe,isMine,createdAt,source?} - source is omitted outside the feed. {@code spoiler} added in v2.
  */
 public record PostSummary(
         String id,
@@ -18,6 +19,7 @@ public record PostSummary(
         String bodyPreview,
         int rating,
         @JsonProperty("containsSpoilers") boolean containsSpoilers,
+        SpoilerInfo spoiler,
         String imageUrl,
         long upvoteCount,
         long commentCount,
@@ -27,7 +29,7 @@ public record PostSummary(
         @JsonInclude(JsonInclude.Include.NON_NULL) FeedSource source
 ) {
     public PostSummary withSource(FeedSource s) {
-        return new PostSummary(id, author, movie, title, bodyPreview, rating, containsSpoilers, imageUrl,
+        return new PostSummary(id, author, movie, title, bodyPreview, rating, containsSpoilers, spoiler, imageUrl,
                 upvoteCount, commentCount, upvotedByMe, isMine, createdAt, s);
     }
 }

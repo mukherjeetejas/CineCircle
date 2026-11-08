@@ -4,6 +4,7 @@ import com.cinecircle.common.UrlBuilder;
 import com.cinecircle.post.dto.PostDetail;
 import com.cinecircle.post.dto.PostMovie;
 import com.cinecircle.post.dto.PostSummary;
+import com.cinecircle.spoiler.SpoilerInfo;
 import com.cinecircle.user.User;
 import com.cinecircle.user.UserDirectory;
 import com.cinecircle.user.UserMapper;
@@ -49,7 +50,8 @@ public class PostAssembler {
         boolean upvoted = viewerId != null && votes.existsByPostIdAndUserId(p.getId(), viewerId);
         PostSummary s = summary(p, author(p, authors), upvoted, viewerId);
         return new PostDetail(s.id(), s.author(), s.movie(), s.title(), s.bodyPreview(), p.getBody(), s.rating(),
-                s.containsSpoilers(), s.imageUrl(), s.upvoteCount(), s.commentCount(), s.upvotedByMe(), s.isMine(),
+                s.containsSpoilers(), s.spoiler(), s.imageUrl(), s.upvoteCount(), s.commentCount(), s.upvotedByMe(),
+                s.isMine(),
                 s.createdAt(), null);
     }
 
@@ -76,7 +78,7 @@ public class PostAssembler {
         PostMovie movie = new PostMovie(p.getTmdbId() == null ? 0 : p.getTmdbId(), p.getMovieTitle(),
                 p.getMovieYear(), urls.poster(p.getMoviePosterPath()));
         return new PostSummary(p.getId(), author, movie, p.getTitle(), preview(p.getBody()), p.getRating(),
-                p.isContainsSpoilers(), imageUrl(p), p.getUpvoteCount(), p.getCommentCount(), upvoted,
+                p.isContainsSpoilers(), SpoilerInfo.of(p), imageUrl(p), p.getUpvoteCount(), p.getCommentCount(), upvoted,
                 viewerId != null && viewerId.equals(p.getAuthorId()), p.getCreatedAt(), null);
     }
 

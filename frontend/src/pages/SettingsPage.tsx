@@ -7,6 +7,7 @@ import { useAuth } from '../auth/context'
 import { Avatar } from '../components/Avatar'
 import { PageHeader } from '../components/PageHeader'
 import { Spinner } from '../components/Spinner'
+import { UseWithClaudePanel } from '../components/UseWithClaudePanel'
 import { cn, validateImage } from '../lib/utils'
 import type { UserProfile } from '../types'
 
@@ -181,6 +182,9 @@ export function SettingsPage() {
       <PageHeader title="Settings" subtitle="Tune your profile and privacy." />
       {/* key: reset the form when the saved profile changes */}
       <SettingsForm key={`${user.displayName}|${user.bio}|${user.isPrivate}`} user={user} />
+      <div className="mt-6 pb-4">
+        <UseWithClaudePanel />
+      </div>
     </div>
   )
 }

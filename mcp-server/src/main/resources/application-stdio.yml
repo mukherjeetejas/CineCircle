@@ -1,0 +1,17 @@
+# Profile for Claude Desktop: java -jar cinecircle-mcp-0.0.1-SNAPSHOT.jar --spring.profiles.active=stdio
+# In stdio mode stdout carries MCP JSON-RPC messages ONLY: no banner, no web server, no console logging.
+spring:
+  main:
+    web-application-type: none
+    banner-mode: "off"
+    log-startup-info: false
+  ai:
+    mcp:
+      server:
+        stdio: true
+
+logging:
+  threshold:
+    console: "OFF"
+  file:
+    name: ${java.io.tmpdir}/cinecircle-mcp.log

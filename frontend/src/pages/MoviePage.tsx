@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom'
 import { isValidTmdbId, useMovie, useMoviePosts } from '../api/movies'
 import { useAuth } from '../auth/context'
 import { EmptyState, ErrorState } from '../components/EmptyState'
+import { MovieSummaryCard } from '../components/MovieSummaryCard'
 import { Poster } from '../components/Poster'
 import { PostList } from '../components/PostList'
 import { Tabs } from '../components/Tabs'
@@ -101,6 +102,11 @@ export function MoviePage() {
           </Link>
         </div>
       </section>
+
+      {/* AI summary (above the review list) */}
+      <div className="mt-6 empty:hidden">
+        <MovieSummaryCard tmdbId={m.tmdbId} writeHref={writeHref} canWrite={status === 'authenticated'} />
+      </div>
 
       {/* reviews */}
       <div className="mb-3 mt-6 flex items-center justify-between gap-3">

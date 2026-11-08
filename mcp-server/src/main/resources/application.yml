@@ -1,0 +1,44 @@
+server:
+  port: 8090
+
+cinecircle:
+  api-url: ${CINECIRCLE_API_URL:http://localhost:8080/api}
+  # Optional user JWT (from POST /api/auth/login). Never logged, never echoed in tool output.
+  token: ${CINECIRCLE_TOKEN:}
+  web-url: http://localhost:5173
+
+spring:
+  application:
+    name: cinecircle-mcp
+  http:
+    client:
+      connect-timeout: 5s
+      # POST /posts runs the AI spoiler check (up to 8 s); summaries may call the LLM (up to 20 s).
+      read-timeout: 30s
+  ai:
+    mcp:
+      server:
+        name: cinecircle
+        version: 0.0.1
+        type: SYNC
+        protocol: STREAMABLE
+        request-timeout: 60s
+        instructions: >-
+          CineCircle is a movie review social app. Use search_movies to find a movie's tmdbId before
+          calling any tool that needs one. Reviews flagged as spoilers are hidden unless you pass
+          includeSpoilers=true; only do that when the user explicitly asks for spoilers.
+          Write tools (create_review, upvote_review, comment_on_review) act as the user's own account.
+        capabilities:
+          tool: true
+          resource: false
+          prompt: false
+          completion: false
+        streamable-http:
+          mcp-endpoint: /mcp
+        # Tools are registered with Spring AI @Tool + ToolCallbackProvider (McpToolsConfig), not @McpTool.
+        annotation-scanner:
+          enabled: false
+
+logging:
+  level:
+    root: INFO

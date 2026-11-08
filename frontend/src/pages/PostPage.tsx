@@ -1,9 +1,9 @@
 import { ArrowLeft, MessageCircle, Reply, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { useMemo, useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useComments, useCreateComment, useDeleteComment } from '../api/comments'
 import { flattenUnique } from '../api/paging'
-import { usePost } from '../api/posts'
+import { SPOILER_POLL_WINDOW_MS, usePost } from '../api/posts'
 import { useAuth } from '../auth/context'
 import { Avatar } from '../components/Avatar'
 import { ConfirmDialog } from '../components/ConfirmDialog'
@@ -229,7 +229,9 @@ function Comments({ postId }: { postId: string }) {
 export function PostPage() {
   const { id = '' } = useParams()
   const navigate = useNavigate()
-  const post = usePost(id)
+  // Poll a PENDING spoiler check for up to 30 s from when this post was opened.
+  const pollPendingUntil = useMemo(() => (id ? Date.now() + SPOILER_POLL_WINDOW_MS : 0), [id])
+  const post = usePost(id, { pollPendingUntil })
 
   return (
     <div>
@@ -258,7 +260,7 @@ export function PostPage() {
         )
       ) : (
         <>
-          <PostCard post={post.data} detail onDeleted={() => navigate('/', { replace: true })} />
+          <PostCard key={post.data.id} post={post.data} detail onDeleted={() => navigate('/', { replace: true })} />
           <Comments postId={post.data.id} />
         </>
       )}

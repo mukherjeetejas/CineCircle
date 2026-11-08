@@ -1,5 +1,6 @@
 package com.cinecircle.post.dto;
 
+import com.cinecircle.spoiler.SpoilerInfo;
 import com.cinecircle.user.dto.UserSummary;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -16,6 +17,7 @@ public record PostDetail(
         String body,
         int rating,
         @JsonProperty("containsSpoilers") boolean containsSpoilers,
+        SpoilerInfo spoiler,
         String imageUrl,
         long upvoteCount,
         long commentCount,
