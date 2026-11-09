@@ -2,7 +2,9 @@
 
 A Reddit-style social app for movie reviews. Post reviews of real movies, follow people, upvote and comment, all in a bold amber-on-black UI.
 
-Every review is tied to a real movie from [TMDB](https://www.themoviedb.org/), so there are no made-up or misspelled titles. Accounts can be public or private, and private accounts are only visible to followers they approve.
+Every review is tied to a real movie from [TMDB](https://www.themoviedb.org/), so there are no made-up or misspelled titles. Accounts can be public or private, and private accounts are only visible to followers they approve. Claude-powered features summarise what people think of a movie, catch spoilers, and let you use CineCircle straight from Claude.
+
+**Jump to:** [Features](#features) · [AI features](#ai-features) · [Screenshots](#screenshots) · [Technical details →](#technical-details)
 
 ## Features
 
@@ -17,6 +19,54 @@ Every review is tied to a real movie from [TMDB](https://www.themoviedb.org/), s
 - **Privacy is enforced on the server.** Private reviews never appear in Popular, on movie pages or anywhere else for people who aren't approved followers.
 - **Responsive layout:** three columns on desktop, one column with a bottom nav on phones.
 
+### AI features
+
+- **"What CineCircle thinks":** every movie page with at least 3 eligible reviews gets an AI summary of the community's opinion: a short paragraph, an overall sentiment badge (e.g. *Positive*), and lists of pros and cons. It only reads reviews by public authors that aren't flagged as spoilers, so private reviews never leak into it. Summaries are cached and regenerated only when the set of reviews changes.
+- **AI spoiler detector:** every new review is checked by AI when it is posted (with a background job retrying anything that couldn't be checked). Reviews the AI flags are blurred just like author-flagged ones, with an **"AI: spoilers"** tag that explains why (e.g. *"Reveals a character's death at the ending"*). Flagged reviews are also left out of the AI summary.
+- **Use CineCircle from Claude (MCP server):** the `mcp-server/` module exposes CineCircle as tools for Claude.ai (custom connector), Claude Code and Claude Desktop. Claude can search movies, show trending titles, read reviews and AI summaries, and look up popular reviews and profiles. With your personal access token it can also **post reviews, upvote and comment as you**. Spoilers stay hidden unless you explicitly ask for them.
+- **One-click setup:** *Settings → Use CineCircle with Claude* gives you a copyable access token and ready-made setup commands for Claude Code and Claude Desktop.
+- **Cost guards:** a daily cap on AI calls; without an API key the app still works, just without AI features.
+
+## Screenshots
+
+### The app
+
+**Home feed:** reviews from people you follow, topped up with popular ones, plus trending movies and "Who to follow".
+
+![Home feed](IMAGES/home_page.png)
+
+**Movie page:** TMDB score next to the CineCircle score, and the AI summary of what reviewers liked and disliked.
+
+![Movie page with the CineCircle score and the AI "What CineCircle thinks" summary](IMAGES/shows_what_cinecircle_thinks_and_cinecircle_score.png)
+
+**AI spoiler detector:** a review the AI flagged as a spoiler stays blurred until you tap to reveal it, with the AI's reason shown in the tag.
+
+![Review blurred behind an AI spoiler tag](IMAGES/shows_review_hidden_behind_spoiler_tag.png)
+
+### CineCircle in Claude
+
+**1. Get your token:** the settings page gives you an access token and copy-paste setup for Claude Code and Claude Desktop.
+
+![Use CineCircle with Claude settings panel](IMAGES/image_showing_how_to_connect_with_claude.png)
+
+**2. Add the connector:** CineCircle added as a custom connector in Claude, with its review tools.
+
+![CineCircle as a custom connector in Claude](IMAGES/showing_cinecircle_in_custom_connector_claude.png)
+
+**3. Ask about a movie:** Claude reads CineCircle's reviews and AI summary to answer "what do people think of Devdas?".
+
+![Asking Claude what CineCircle users think of a movie](IMAGES/talking_to_claude_ai_to_get_public_data.png)
+
+**4. Post a review:** Claude Code posts a review on your behalf, and reports the result of the spoiler check.
+
+![Posting a review to CineCircle from Claude Code](IMAGES/using_mcp_to_post_review_via_claude.png)
+
+---
+
+## Technical details
+
+The rest of this README covers the stack, setup, configuration and API. For the MCP server, see [`mcp-server/README.md`](mcp-server/README.md).
+
 ## Tech stack
 
 | Layer | Stack |
@@ -25,6 +75,8 @@ Every review is tied to a real movie from [TMDB](https://www.themoviedb.org/), s
 | Frontend (`frontend/`) | React 18, Vite, TypeScript, react-router v6, TanStack Query, Tailwind CSS, lucide-react, react-hot-toast, date-fns |
 | Database | MongoDB (local Community Server or Docker) |
 | Movie data | TMDB API (free for non-commercial use with attribution) |
+| AI | Anthropic Claude API for review summaries and spoiler detection |
+| MCP server (`mcp-server/`) | Java 21, Spring Boot, Spring AI MCP server (Streamable HTTP and stdio) |
 
 ## Prerequisites
 
