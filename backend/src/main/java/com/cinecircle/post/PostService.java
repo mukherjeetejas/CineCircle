@@ -5,6 +5,7 @@ import com.cinecircle.common.ApiException;
 import com.cinecircle.common.ErrorCode;
 import com.cinecircle.common.PageParams;
 import com.cinecircle.common.PageResponse;
+import com.cinecircle.common.RateLimiter;
 import com.cinecircle.follow.FollowService;
 import com.cinecircle.image.ImageService;
 import com.cinecircle.movie.Movie;
@@ -51,11 +52,23 @@ public class PostService {
     private final UserCounters userCounters;
     private final MongoTemplate mongo;
     private final SpoilerCheckService spoilerChecks;
+    private final RateLimiter rateLimiter;
     private final Clock clock = Clock.systemUTC();
 
     // ------------------------------------------------------------------ create
 
+    /** Limited to {@code app.limits.posts-per-day} per user; a rejected create gives its slot back. */
     public PostDetail create(String viewerId, CreatePostRequest req, MultipartFile image) {
+        rateLimiter.acquirePost(viewerId);
+        try {
+            return doCreate(viewerId, req, image);
+        } catch (RuntimeException e) {
+            rateLimiter.releasePost(viewerId);
+            throw e;
+        }
+    }
+
+    private PostDetail doCreate(String viewerId, CreatePostRequest req, MultipartFile image) {
         User author = userDirectory.byId(viewerId);
         Movie movie = movieService.getOrFetch(req.tmdbId())
                 .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, ErrorCode.MOVIE_NOT_FOUND,

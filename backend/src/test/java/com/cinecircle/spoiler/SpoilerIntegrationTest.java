@@ -147,6 +147,45 @@ class SpoilerIntegrationTest extends AiIntegrationSupport {
     }
 
     @Test
+    void capRefusalOnCreateStaysPendingWithoutUsingAnAttempt() throws Exception {
+        String token = register("neo");
+        when(llm.completeJson(anyString(), anyString(), eq(150), any()))
+                .thenThrow(new com.cinecircle.llm.LlmCapReachedException());
+        createPost(token, "Title", "Body", false)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.spoiler.aiStatus").value("PENDING"));
+        Post stored = mongo.findOne(new Query(), Post.class);
+        assertThat(stored.getAiSpoilerStatus()).isEqualTo(AiSpoilerStatus.PENDING);
+        assertThat(stored.getAiSpoilerAttempts()).isZero();
+    }
+
+    @Test
+    void capRefusalInJobDoesNotConsumeAttemptsAndStopsTheBatch() {
+        Instant old = Instant.now().minus(Duration.ofMinutes(5));
+        Post a = insertPost("neo", false, false, AiSpoilerStatus.PENDING, 8, "A", "B", old);
+        Post b = insertPost("trinity", false, false, AiSpoilerStatus.PENDING, 8, "B", "B", old.plusSeconds(1));
+        when(llm.completeJson(anyString(), anyString(), eq(150), any()))
+                .thenThrow(new com.cinecircle.llm.LlmCapReachedException());
+
+        for (int run = 0; run < 5; run++) {
+            assertThat(checks.processBatch()).isZero();
+        }
+        for (Post p : new Post[]{a, b}) {
+            assertThat(reload(p).getAiSpoilerStatus()).isEqualTo(AiSpoilerStatus.PENDING);
+            assertThat(reload(p).getAiSpoilerAttempts()).isZero();
+        }
+        // one refused call per run: the batch stops at the first refusal
+        verify(llm, times(5)).completeJson(anyString(), anyString(), eq(150), any());
+
+        // after midnight UTC the cap is lifted: the same posts are checked normally
+        org.mockito.Mockito.reset(llm);
+        when(llm.isEnabled()).thenReturn(true);
+        stubDetector(CLEAN);
+        assertThat(checks.processBatch()).isEqualTo(2);
+        assertThat(reload(a).getAiSpoilerStatus()).isEqualTo(AiSpoilerStatus.CLEAN);
+    }
+
+    @Test
     void jobRetrySucceeds() {
         Post p = insertPost("neo", false, false, AiSpoilerStatus.PENDING, 8, "T", "B",
                 Instant.now().minus(Duration.ofMinutes(5)));

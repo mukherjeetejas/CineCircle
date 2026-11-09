@@ -8,7 +8,7 @@ import { Avatar } from '../components/Avatar'
 import { PageHeader } from '../components/PageHeader'
 import { Spinner } from '../components/Spinner'
 import { UseWithClaudePanel } from '../components/UseWithClaudePanel'
-import { cn, validateImage } from '../lib/utils'
+import { cn, MAX_IMAGE_LABEL, validateImage } from '../lib/utils'
 import type { UserProfile } from '../types'
 
 const MAX_BIO = 160
@@ -53,7 +53,7 @@ function SettingsForm({ user }: { user: UserProfile }) {
         onError: (err) => {
           if (err instanceof ApiError) {
             setErrors(err.fieldErrors)
-            toast.error(err.message)
+            if (!err.toasted) toast.error(err.message)
           }
         },
       },
@@ -73,7 +73,7 @@ function SettingsForm({ user }: { user: UserProfile }) {
         </div>
         <div>
           <div className="font-semibold">Profile picture</div>
-          <p className="mb-2 text-xs text-muted">JPEG, PNG or WebP, up to 5 MB.</p>
+          <p className="mb-2 text-xs text-muted">JPEG, PNG or WebP, up to {MAX_IMAGE_LABEL}.</p>
           <label className={cn('btn btn-outline btn-sm cursor-pointer focus-within:ring-2 focus-within:ring-amber', upload.isPending && 'opacity-50')}>
             <Camera className="h-4 w-4" aria-hidden /> Upload new
             <input

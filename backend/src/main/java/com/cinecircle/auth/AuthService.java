@@ -5,6 +5,7 @@ import com.cinecircle.auth.dto.LoginRequest;
 import com.cinecircle.auth.dto.RegisterRequest;
 import com.cinecircle.common.ApiException;
 import com.cinecircle.common.ErrorCode;
+import com.cinecircle.common.RateLimiter;
 import com.cinecircle.follow.FollowStatus;
 import com.cinecircle.security.JwtService;
 import com.cinecircle.user.User;
@@ -32,8 +33,26 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final UserMapper userMapper;
+    private final RateLimiter rateLimiter;
 
-    public AuthResponse register(RegisterRequest req) {
+    /** Registration limited per client IP per hour; failed registrations give their slot back. */
+    public AuthResponse register(RegisterRequest req, String clientIp) {
+        rateLimiter.acquireRegister(clientIp);
+        try {
+            return register(req);
+        } catch (RuntimeException e) {
+            rateLimiter.releaseRegister(clientIp);
+            throw e;
+        }
+    }
+
+    /** Every attempt counts towards the per-IP per-minute login limit. */
+    public AuthResponse login(LoginRequest req, String clientIp) {
+        rateLimiter.acquireLogin(clientIp);
+        return login(req);
+    }
+
+    AuthResponse register(RegisterRequest req) {
         if (RESERVED_USERNAMES.contains(req.username())) {
             throw ApiException.validation("username", "This username is reserved");
         }
@@ -60,7 +79,7 @@ public class AuthService {
         return toResponse(user);
     }
 
-    public AuthResponse login(LoginRequest req) {
+    AuthResponse login(LoginRequest req) {
         String id = req.usernameOrEmail().trim().toLowerCase();
         Optional<User> user = id.contains("@") ? users.findByEmail(id) : users.findByUsername(id);
         if (user.isEmpty() || !passwordEncoder.matches(req.password(), user.get().getPasswordHash())) {

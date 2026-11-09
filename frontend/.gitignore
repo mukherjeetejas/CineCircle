@@ -4,3 +4,8 @@ dist-ssr
 *.local
 *.tsbuildinfo
 .vite
+
+# env files (keep only the documented example)
+.env
+.env.*
+!.env.example

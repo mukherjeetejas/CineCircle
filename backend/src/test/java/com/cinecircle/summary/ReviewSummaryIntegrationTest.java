@@ -135,31 +135,87 @@ class ReviewSummaryIntegrationTest extends AiIntegrationSupport {
         assertThat(second.basedOnCount()).isEqualTo(3);
     }
 
+    // DEPLOY.md regeneration rule: count differs (any difference) AND cached copy >= 1 h old, or none exists.
+
     @Test
-    void regeneratedAfter24Hours() {
+    void notRegeneratedJustBecauseTimePassed() {
         threeEligible();
         stubSummary(VALID);
-        service.get(MATRIX);
-        ageSummary(Duration.ofHours(25));
+        ReviewSummary first = service.get(MATRIX);
+        ageSummary(Duration.ofDays(30));
 
         ReviewSummary again = service.get(MATRIX);
 
-        verify(llm, times(2)).completeJson(anyString(), anyString(), eq(600), any());
-        assertThat(again.generatedAt()).isAfter(Instant.now().minus(Duration.ofMinutes(1)));
+        verify(llm, times(1)).completeJson(anyString(), anyString(), eq(600), any());
+        assertThat(again.stale()).isFalse();
+        assertThat(again.basedOnCount()).isEqualTo(first.basedOnCount());
     }
 
     @Test
-    void regeneratedAfterFiveMorePosts() {
+    void countChangeYoungerThanOneHourKeepsTheCache() {
         threeEligible();
         stubSummary(VALID);
         service.get(MATRIX);
         for (int i = 0; i < 5; i++) {
             insertPublicClean("new" + i, 9, "N" + i);
         }
+        ageSummary(Duration.ofMinutes(59));
+
+        ReviewSummary again = service.get(MATRIX);
+
+        verify(llm, times(1)).completeJson(anyString(), anyString(), eq(600), any());
+        assertThat(again.basedOnCount()).isEqualTo(3);
+    }
+
+    @Test
+    void regeneratedWhenCountDiffersByOneAndAtLeastOneHourOld() {
+        threeEligible();
+        stubSummary(VALID);
+        service.get(MATRIX);
+        insertPublicClean("erin", 9, "E");
+        ageSummary(Duration.ofHours(1));
+
         ReviewSummary again = service.get(MATRIX);
 
         verify(llm, times(2)).completeJson(anyString(), anyString(), eq(600), any());
-        assertThat(again.basedOnCount()).isEqualTo(8);
+        assertThat(again.basedOnCount()).isEqualTo(4);
+        assertThat(again.generatedAt()).isAfter(Instant.now().minus(Duration.ofMinutes(1)));
+    }
+
+    @Test
+    void regeneratedWhenCountDropsAndAtLeastOneHourOld() {
+        fourEligible();
+        stubSummary(VALID);
+        service.get(MATRIX);
+        // all 4 posts are sources (deleting one would make the copy unverifiable), so simulate a lower count
+        // by recording a higher basedOnCount: eligible (4) < basedOnCount (5)
+        mongo.updateFirst(Query.query(Criteria.where("tmdbId").is(MATRIX)),
+                new Update().set("basedOnCount", 5), MovieReviewSummary.class);
+        ageSummary(Duration.ofHours(2));
+
+        ReviewSummary again = service.get(MATRIX);
+
+        verify(llm, times(2)).completeJson(anyString(), anyString(), eq(600), any());
+        assertThat(again.basedOnCount()).isEqualTo(4);
+    }
+
+    @Test
+    void capRefusalServesStaleCopyOrIs502() {
+        threeEligible();
+        stubSummary(VALID);
+        service.get(MATRIX);
+        insertPublicClean("erin", 9, "E");
+        ageSummary(Duration.ofHours(2));
+        when(llm.completeJson(anyString(), anyString(), anyInt(), any()))
+                .thenThrow(new com.cinecircle.llm.LlmCapReachedException());
+
+        ReviewSummary s = service.get(MATRIX);
+        assertThat(s.stale()).isTrue();
+
+        mongo.remove(new Query(), MovieReviewSummary.class);
+        assertThatThrownBy(() -> service.get(MATRIX))
+                .isInstanceOf(ApiException.class)
+                .extracting(e -> ((ApiException) e).getCode()).isEqualTo(ErrorCode.SUMMARY_UNAVAILABLE);
     }
 
     // ------------------------------------------------------------------ failures
@@ -207,7 +263,8 @@ class ReviewSummaryIntegrationTest extends AiIntegrationSupport {
         threeEligible();
         stubSummary(VALID);
         ReviewSummary original = service.get(MATRIX);
-        ageSummary(Duration.ofHours(30));
+        insertPublicClean("erin", 7, "E"); // count differs ...
+        ageSummary(Duration.ofHours(30)); // ... and >= 1 h old -> regeneration is attempted
         when(llm.completeJson(anyString(), anyString(), anyInt(), any())).thenThrow(new LlmException("timeout"));
 
         mvc.perform(get("/api/movies/" + MATRIX + "/summary"))
@@ -283,6 +340,7 @@ class ReviewSummaryIntegrationTest extends AiIntegrationSupport {
         threeEligible();
         stubSummary(VALID);
         service.get(MATRIX);
+        insertPublicClean("erin", 7, "E");
         ageSummary(Duration.ofHours(25));
         CountDownLatch entered = new CountDownLatch(1);
         CountDownLatch release = new CountDownLatch(1);
@@ -405,6 +463,7 @@ class ReviewSummaryIntegrationTest extends AiIntegrationSupport {
         threeEligible();
         stubSummary(VALID);
         service.get(MATRIX);
+        insertPublicClean("erin", 7, "E");
         ageSummary(Duration.ofHours(25));
         when(llm.isEnabled()).thenReturn(false);
         ReviewSummary s = service.get(MATRIX);
@@ -420,7 +479,7 @@ class ReviewSummaryIntegrationTest extends AiIntegrationSupport {
         String removed = setOnOneSource(new Update().set("authorIsPrivate", true));
         stubSummary(VALID.replace("Viewers love", "Regenerated: viewers love"));
 
-        ReviewSummary s = service.get(MATRIX); // still < 24 h old and count drift 1, but a source is ineligible
+        ReviewSummary s = service.get(MATRIX); // < 1 h old (no regeneration by count rule), but a source is ineligible: privacy forces it
 
         verify(llm, times(2)).completeJson(anyString(), anyString(), eq(600), any());
         assertThat(s.summary()).startsWith("Regenerated:");

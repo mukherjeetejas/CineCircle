@@ -2,7 +2,7 @@ import { Check, Copy, KeyRound, ShieldAlert, Sparkles, Terminal } from 'lucide-r
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import toast from 'react-hot-toast'
 import { useAuth } from '../auth/context'
-import { CLAUDE_CODE_COMMAND, CLAUDE_DESKTOP_CONFIG_JSON, MCP_RUN_COMMAND } from '../config/mcp'
+import { CLAUDE_CODE_COMMAND, CLAUDE_DESKTOP_CONFIG_JSON, MCP_IS_LOCAL, MCP_RUN_COMMAND } from '../config/mcp'
 import { cn } from '../lib/utils'
 
 async function copyText(text: string): Promise<boolean> {
@@ -107,27 +107,30 @@ export function UseWithClaudePanel() {
         </div>
       </div>
 
-      <CodeBlock
-        id="mcp-run"
-        label="1. Start the MCP server"
-        hint="From the project root, with the backend running on 8080."
-        code={MCP_RUN_COMMAND}
-      />
+      {MCP_IS_LOCAL && (
+        <CodeBlock
+          id="mcp-run"
+          label="Start the MCP server"
+          hint="Local setup: from the project root, with the backend running."
+          code={MCP_RUN_COMMAND}
+        />
+      )}
       <CodeBlock
         id="mcp-claude-code"
-        label="2a. Claude Code"
+        label="Claude Code"
         hint={
           <>
             <Terminal className="mr-1 inline h-3 w-3" aria-hidden />
-            Run once in a terminal. To post as you, start the server with <code className="text-ink">CINECIRCLE_TOKEN</code> set to
-            your token.
+            Run once in a terminal. Replace <code className="text-ink">&lt;token&gt;</code> with your copied access
+            token. Without the <code className="text-ink">--header</code> part Claude can only read public content.
+            The first call after a quiet spell can take a minute or two while the servers wake up.
           </>
         }
         code={CLAUDE_CODE_COMMAND}
       />
       <CodeBlock
         id="mcp-claude-desktop"
-        label="2b. Claude Desktop"
+        label="Claude Desktop (local jar)"
         hint={
           <>
             Add to <code className="text-ink">claude_desktop_config.json</code>, fix the jar path, paste your token, then

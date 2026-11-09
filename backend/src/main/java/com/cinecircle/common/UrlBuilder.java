@@ -13,8 +13,12 @@ public class UrlBuilder {
     private final String imageBase;
 
     public UrlBuilder(AppProperties props) {
-        String base = props.publicUrl() == null ? "http://localhost:8080" : props.publicUrl();
-        if (base.endsWith("/")) {
+        // app.public-base-url (APP_PUBLIC_BASE_URL, local default in application.yml / AppProperties)
+        if (props.publicBaseUrl() == null || props.publicBaseUrl().isBlank()) {
+            throw new IllegalStateException("app.public-base-url must not be blank");
+        }
+        String base = props.publicBaseUrl().strip();
+        while (base.endsWith("/")) {
             base = base.substring(0, base.length() - 1);
         }
         this.imageBase = base + "/api/images/";

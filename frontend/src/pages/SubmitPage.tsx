@@ -111,7 +111,7 @@ export function SubmitPage() {
             }
             const hasField = Object.values(mapped).some(Boolean)
             setErrors({ ...mapped, form: hasField ? undefined : err.message })
-            toast.error(err.message)
+            if (!err.toasted) toast.error(err.message)
           } else {
             setErrors({ form: 'Something went wrong. Try again.' })
           }

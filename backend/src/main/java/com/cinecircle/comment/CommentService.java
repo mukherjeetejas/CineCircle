@@ -5,6 +5,7 @@ import com.cinecircle.comment.dto.CreateCommentRequest;
 import com.cinecircle.common.ApiException;
 import com.cinecircle.common.PageParams;
 import com.cinecircle.common.PageResponse;
+import com.cinecircle.common.RateLimiter;
 import com.cinecircle.post.Post;
 import com.cinecircle.post.PostService;
 import com.cinecircle.user.User;
@@ -37,6 +38,7 @@ public class CommentService {
     private final UserDirectory userDirectory;
     private final UserMapper userMapper;
     private final MongoTemplate mongo;
+    private final RateLimiter rateLimiter;
 
     /** Top-level comments (newest first), each with its replies (oldest first). 3 queries per page. */
     public PageResponse<CommentDto> list(String postId, String viewerId, PageParams params) {
@@ -70,7 +72,18 @@ public class CommentService {
         return new PageResponse<>(items, page.page(), page.size(), page.hasNext());
     }
 
+    /** Limited to {@code app.limits.comments-per-day} per user; a rejected comment gives its slot back. */
     public CommentDto create(String postId, String viewerId, CreateCommentRequest req) {
+        rateLimiter.acquireComment(viewerId);
+        try {
+            return doCreate(postId, viewerId, req);
+        } catch (RuntimeException e) {
+            rateLimiter.releaseComment(viewerId);
+            throw e;
+        }
+    }
+
+    private CommentDto doCreate(String postId, String viewerId, CreateCommentRequest req) {
         Post post = postService.loadVisible(postId, viewerId);
         User author = userDirectory.byId(viewerId);
         String parentId = null;

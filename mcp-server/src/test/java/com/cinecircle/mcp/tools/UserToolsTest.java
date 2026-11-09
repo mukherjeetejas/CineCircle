@@ -5,6 +5,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.test.web.client.ExpectedCount;
 
 import java.net.ConnectException;
 
@@ -33,7 +34,7 @@ class UserToolsTest extends ToolTestSupport {
                 .andExpect(headerDoesNotExist(HttpHeaders.AUTHORIZATION))
                 .andRespond(withSuccess(profile("carol", false, "NONE", true), MediaType.APPLICATION_JSON));
 
-        assertThat(userTools.getUserProfile("@carol")).isEqualTo("""
+        assertThat(userTools.getUserProfile("@carol", LOCAL)).isEqualTo("""
                 @carol (Carol C) · public account
                 Bio: Horror nerd.
                 1 follower · 4 following · 7 reviews · joined 2026-01-02
@@ -49,7 +50,7 @@ class UserToolsTest extends ToolTestSupport {
                 .andExpect(header(HttpHeaders.AUTHORIZATION, "Bearer " + TOKEN))
                 .andRespond(withSuccess(profile("carol", true, "PENDING", false), MediaType.APPLICATION_JSON));
 
-        assertThat(userTools.getUserProfile("carol")).contains("private account").contains("Your follow status: PENDING")
+        assertThat(userTools.getUserProfile("carol", LOCAL)).contains("private account").contains("Your follow status: PENDING")
                 .contains("Their reviews are private").doesNotContain(TOKEN);
     }
 
@@ -60,20 +61,20 @@ class UserToolsTest extends ToolTestSupport {
                 .andRespond(withStatus(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON)
                         .body(errorJson(404, "NOT_FOUND", "User not found")));
 
-        assertThat(toolError(() -> userTools.getUserProfile("a/b c"))).isEqualTo("CineCircle error NOT_FOUND: User not found");
+        assertThat(toolError(() -> userTools.getUserProfile("a/b c", LOCAL))).isEqualTo("CineCircle error NOT_FOUND: User not found");
     }
 
     @Test
     void blankUsername_isRejected() {
         setUp(null);
-        assertThat(toolError(() -> userTools.getUserProfile("@"))).contains("username is required");
+        assertThat(toolError(() -> userTools.getUserProfile("@", LOCAL))).contains("username is required");
     }
 
     @Test
     void backendDown() {
         setUp(null);
-        server.expect(requestTo(API + "/users/carol")).andRespond(withException(new ConnectException("refused")));
-        assertThat(toolError(() -> userTools.getUserProfile("carol")))
-                .isEqualTo("CineCircle API is not reachable at http://localhost:8080/api");
+        server.expect(ExpectedCount.times(2), requestTo(API + "/users/carol")).andRespond(withException(new ConnectException("refused")));
+        assertThat(toolError(() -> userTools.getUserProfile("carol", LOCAL)))
+                .isEqualTo(WAKING_UP_UNREACHABLE);
     }
 }

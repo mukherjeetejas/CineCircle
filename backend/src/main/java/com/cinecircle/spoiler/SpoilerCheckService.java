@@ -1,5 +1,6 @@
 package com.cinecircle.spoiler;
 
+import com.cinecircle.llm.LlmCapReachedException;
 import com.cinecircle.movie.Movie;
 import com.cinecircle.movie.MovieRepository;
 import com.cinecircle.post.Post;
@@ -64,6 +65,8 @@ public class SpoilerCheckService {
     public Post checkNow(Post post, Movie movie) {
         try {
             check(post, movie, SYNC_TIMEOUT);
+        } catch (LlmCapReachedException e) {
+            log.info("Spoiler check for new post {} deferred: daily AI call limit reached", post.getId());
         } catch (RuntimeException e) {
             log.warn("Spoiler check for new post {} failed unexpectedly ({})", post.getId(), e.getClass().getSimpleName());
         }
@@ -87,17 +90,25 @@ public class SpoilerCheckService {
         Map<Long, Movie> movieById = loadMovies(batch.stream().map(Post::getTmdbId).filter(Objects::nonNull)
                 .collect(Collectors.toSet()));
         int ok = 0;
+        int attempted = 0;
         for (Post p : batch) {
             try {
+                attempted++;
                 if (check(p, movieById.get(p.getTmdbId()), JOB_TIMEOUT)) {
                     ok++;
                 }
+            } catch (LlmCapReachedException e) {
+                // the rest of the batch would be refused too; nothing is consumed, retried after midnight UTC
+                attempted--;
+                log.info("Spoiler job: daily AI call limit reached, {} post(s) left for tomorrow",
+                        batch.size() - attempted);
+                break;
             } catch (RuntimeException e) {
                 log.warn("Spoiler job: post {} failed unexpectedly ({})", p.getId(), e.getClass().getSimpleName());
             }
         }
-        log.info("Spoiler job: checked {} post(s), {} succeeded", batch.size(), ok);
-        return batch.size();
+        log.info("Spoiler job: checked {} post(s), {} succeeded", attempted, ok);
+        return attempted;
     }
 
     List<Post> nextBatch() {
@@ -141,6 +152,10 @@ public class SpoilerCheckService {
         SpoilerVerdict verdict;
         try {
             verdict = detector.detect(input, timeout);
+        } catch (LlmCapReachedException e) {
+            // daily AI cap: behaves as disabled for this call - the post stays as it is (PENDING / UNCHECKED) and
+            // no attempt is used up; the job picks it up again after midnight UTC
+            throw e;
         } catch (RuntimeException e) {
             // LlmException (disabled/timeout/API/invalid JSON) or anything unexpected: a failed attempt
             log.info("Spoiler check attempt failed for post {}: {}", post.getId(), e.getMessage());

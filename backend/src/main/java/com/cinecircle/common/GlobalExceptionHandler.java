@@ -26,7 +26,10 @@ import java.util.Map;
 
 @Slf4j
 @RestControllerAdvice
+@lombok.RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final com.cinecircle.config.ImageProperties imageProperties;
 
     @ExceptionHandler(ApiException.class)
     public ResponseEntity<ErrorResponse> handleApi(ApiException ex) {
@@ -88,10 +91,13 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, "Malformed JSON request body", null);
     }
 
+    /** Multipart limit hit before the image guard ran: same 400 and message as the guard. */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex) {
-        String msg = "File too large (max 5 MB)";
-        return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, msg, Map.of("image", msg));
+    public ResponseEntity<ErrorResponse> handleTooLarge(MaxUploadSizeExceededException ex,
+                                                        jakarta.servlet.http.HttpServletRequest request) {
+        String msg = imageProperties.tooLargeMessage();
+        String field = request.getRequestURI() != null && request.getRequestURI().endsWith("/avatar") ? "file" : "image";
+        return build(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_ERROR, msg, Map.of(field, msg));
     }
 
     @ExceptionHandler(MultipartException.class)

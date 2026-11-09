@@ -46,10 +46,11 @@ class OwnershipTest {
     @Mock MongoTemplate mongo;
     @Mock UserMapper userMapper;
     @Mock SpoilerCheckService spoilerChecks;
+    @Mock com.cinecircle.common.RateLimiter rateLimiter;
 
     private PostService postService() {
         return new PostService(posts, queries, assembler, movieService, followService, imageService, votes,
-                comments, userDirectory, userCounters, mongo, spoilerChecks);
+                comments, userDirectory, userCounters, mongo, spoilerChecks, rateLimiter);
     }
 
     @Test
@@ -85,7 +86,7 @@ class OwnershipTest {
 
     @Test
     void nonOwnerCannotDeleteComment() {
-        CommentService commentService = new CommentService(comments, postService(), userDirectory, userMapper, mongo);
+        CommentService commentService = new CommentService(comments, postService(), userDirectory, userMapper, mongo, rateLimiter);
         when(comments.findById("c1")).thenReturn(Optional.of(
                 Comment.builder().id("c1").postId("p1").authorId("author").body("hi").build()));
 

@@ -3,6 +3,7 @@ package com.cinecircle.mcp.tools;
 import com.cinecircle.mcp.client.CineCircleApiClient;
 import com.cinecircle.mcp.format.PlainTextResultConverter;
 import com.cinecircle.mcp.format.UserFormatter;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
@@ -25,13 +26,14 @@ public class UserTools {
             Get a CineCircle user's public profile by username: display name, bio, follower / following / \
             review counts, whether the account is private, your follow status and whether you can see their \
             reviews. Use it when the user asks about a reviewer.""")
-    public String getUserProfile(@ToolParam(description = "CineCircle username, e.g. \"alice\" (a leading @ is ignored)") String username) {
-        return runner.read("get_user_profile", () -> {
+    public String getUserProfile(@ToolParam(description = "CineCircle username, e.g. \"alice\" (a leading @ is ignored)") String username,
+            ToolContext toolContext) {
+        return runner.read("get_user_profile", toolContext, caller -> {
             String u = ToolArgs.required("username", username);
             if (u.startsWith("@")) {
                 u = ToolArgs.required("username", u.substring(1));
             }
-            return format.profile(api.user(u));
+            return format.profile(api.user(caller, u));
         });
     }
 }

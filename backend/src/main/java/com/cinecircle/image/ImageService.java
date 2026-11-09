@@ -1,11 +1,14 @@
 package com.cinecircle.image;
 
 import com.cinecircle.common.ApiException;
+import com.cinecircle.common.ErrorCode;
+import com.cinecircle.config.ImageProperties;
 import com.mongodb.client.gridfs.model.GridFSFile;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bson.Document;
 import org.bson.types.ObjectId;
+import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.gridfs.GridFsResource;
@@ -16,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.List;
 import java.util.Map;
 
 /** Stores images in the GridFS bucket {@code images} (bucket name configured in application.yml). */
@@ -24,7 +28,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ImageService {
 
-    public static final long MAX_BYTES = 5L * 1024 * 1024;
+    /** Files collection of the GridFS bucket {@code images} (spring.data.mongodb.gridfs.bucket). */
+    static final String FILES_COLLECTION = "images.files";
+
     private static final Map<String, String> ALLOWED = Map.of(
             "image/jpeg", "jpg",
             "image/jpg", "jpg",
@@ -32,21 +38,25 @@ public class ImageService {
             "image/webp", "webp");
 
     private final GridFsTemplate gridFs;
+    private final MongoTemplate mongo;
+    private final ImageProperties props;
 
     public record StoredImage(byte[] bytes, String contentType) {
     }
 
     /**
-     * Validates type (jpeg/png/webp, by declared content type AND magic bytes) and size (max 5 MB),
-     * then stores the file. Returns the GridFS id (hex ObjectId).
+     * Validates size ({@code app.images.max-bytes} -> 400 VALIDATION_ERROR), the storage guard (GridFS bucket
+     * total &gt;= {@code app.images.storage-limit-mb} -> 507 STORAGE_FULL) and type (jpeg/png/webp, by declared
+     * content type AND magic bytes), then stores the file. Returns the GridFS id (hex ObjectId).
      */
     public String store(MultipartFile file, String field, String ownerId) {
         if (file == null || file.isEmpty()) {
             throw ApiException.validation(field, "Image file is required");
         }
-        if (file.getSize() > MAX_BYTES) {
-            throw ApiException.validation(field, "Image must be at most 5 MB");
+        if (file.getSize() > props.maxBytes()) {
+            throw ApiException.validation(field, props.tooLargeMessage());
         }
+        ensureStorageAvailable();
         String declared = file.getContentType() == null ? "" : file.getContentType().toLowerCase();
         if (!ALLOWED.containsKey(declared)) {
             throw ApiException.validation(field, "Only JPEG, PNG or WebP images are allowed");
@@ -76,6 +86,28 @@ public class ImageService {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to store image", e);
         }
+    }
+
+    /** 507 STORAGE_FULL when the GridFS {@code images} bucket already holds {@code storage-limit-mb} or more. */
+    public void ensureStorageAvailable() {
+        if (totalStoredBytes() >= props.storageLimitBytes()) {
+            log.warn("Image storage limit of {} MB reached: uploads are refused", props.storageLimitMb());
+            throw new ApiException(ErrorCode.STORAGE_FULL,
+                    "Image uploads are paused because storage is full — you can still post without a custom image.");
+        }
+    }
+
+    /** Sum of {@code length} over {@code images.files} (one small aggregation). */
+    public long totalStoredBytes() {
+        Document result = mongo.getCollection(FILES_COLLECTION).aggregate(List.of(
+                        new Document("$group", new Document("_id", null)
+                                .append("total", new Document("$sum", "$length")))))
+                .first();
+        if (result == null) {
+            return 0;
+        }
+        Object total = result.get("total");
+        return total instanceof Number n ? n.longValue() : 0;
     }
 
     public StoredImage load(String id) {

@@ -148,7 +148,7 @@ class LlmClientTest {
 
     @Test
     void propertiesToStringRedactsKey() {
-        assertThat(new LlmProperties("sk-secret", "m", "u", true).toString()).doesNotContain("sk-secret");
+        assertThat(new LlmProperties("sk-secret", "m", "u", true, 150).toString()).doesNotContain("sk-secret");
     }
 
     @Test
@@ -167,7 +167,10 @@ class LlmClientTest {
                              boolean thinkingDisabled) {
         WebClient.Builder builder = WebClient.builder().exchangeFunction(fn)
                 .exchangeStrategies(ExchangeStrategies.withDefaults());
-        return new LlmClient(builder, new LlmProperties(key, "test-model", "http://llm.test", thinkingDisabled));
+        LlmUsageService usage = org.mockito.Mockito.mock(LlmUsageService.class);
+        org.mockito.Mockito.when(usage.tryAcquire()).thenReturn(true);
+        return new LlmClient(builder, new LlmProperties(key, "test-model", "http://llm.test", thinkingDisabled, 150),
+                usage);
     }
 
     @SuppressWarnings("unchecked")

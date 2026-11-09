@@ -1,0 +1,16 @@
+# IDE
+.idea/
+*.iml
+
+# Secrets — keep only the examples
+.env
+.env.*
+!.env.example
+
+# Build output / dependencies
+target/
+node_modules/
+dist/
+
+# Logs
+*.log

@@ -38,8 +38,10 @@ public class LlmClient implements DisposableBean {
     private final boolean enabled;
     private final String model;
     private final boolean thinkingDisabled;
+    private final LlmUsageService usage;
 
-    public LlmClient(WebClient.Builder builder, LlmProperties props) {
+    public LlmClient(WebClient.Builder builder, LlmProperties props, LlmUsageService usage) {
+        this.usage = usage;
         this.enabled = props.apiKey() != null && !props.apiKey().isBlank();
         this.thinkingDisabled = props.thinkingDisabled();
         this.model = props.model() == null || props.model().isBlank() ? "claude-haiku-5-5" : props.model();
@@ -80,11 +82,28 @@ public class LlmClient implements DisposableBean {
      * Sends one user message with a system prompt and returns the model's text reply (text blocks
      * concatenated). The caller parses and validates the JSON.
      *
-     * @throws LlmException when disabled, on timeout, transport or API error, or an empty reply
+     * <p>Before the call, one unit of today's {@code app.llm.daily-call-limit} is reserved (atomic {@code $inc} in
+     * {@code llm_usage}); when the limit is used up the API is not called and {@link LlmCapReachedException} is
+     * thrown - the LLM behaves as disabled for this call.
+     *
+     * @throws LlmCapReachedException when today's AI call limit is used up (not a failed attempt)
+     * @throws LlmException           when disabled, on timeout, transport or API error, or an empty reply
      */
     public String completeJson(String system, String user, int maxTokens, Duration timeout) {
         if (!enabled) {
             throw new LlmException("LLM is disabled (no API key configured)");
+        }
+        boolean allowed;
+        try {
+            allowed = usage.tryAcquire();
+        } catch (LlmException e) {
+            throw e;
+        } catch (RuntimeException e) {
+            log.warn("AI usage counter unavailable ({})", e.getClass().getSimpleName());
+            throw new LlmException("AI usage counter unavailable", e);
+        }
+        if (!allowed) {
+            throw new LlmCapReachedException();
         }
         Map<String, Object> request = new LinkedHashMap<>();
         request.put("model", model);

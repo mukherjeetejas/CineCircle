@@ -1,11 +1,19 @@
 server:
-  port: 8090
+  port: ${PORT:8090}
 
 cinecircle:
   api-url: ${CINECIRCLE_API_URL:http://localhost:8080/api}
+  # Web app base URL for review/movie/user links in tool output.
+  web-url: ${CINECIRCLE_WEB_URL:http://localhost:5173}
   # Optional user JWT (from POST /api/auth/login). Never logged, never echoed in tool output.
   token: ${CINECIRCLE_TOKEN:}
-  web-url: http://localhost:5173
+  # true (local/stdio): CINECIRCLE_TOKEN may be used. MUST be false on a hosted server: there each caller
+  # brings their own token in the MCP request's Authorization header.
+  allow-env-token: ${MCP_ALLOW_ENV_TOKEN:true}
+  # Tool calls per client IP per minute (HTTP only). 0 disables.
+  rate-limit-per-minute: ${MCP_RATE_LIMIT_PER_MINUTE:60}
+  # Wait before the single retry when the backend looks asleep (connect error / gateway 502/503/504).
+  retry-delay: 5s
 
 spring:
   application:
@@ -13,8 +21,8 @@ spring:
   http:
     client:
       connect-timeout: 5s
-      # POST /posts runs the AI spoiler check (up to 8 s); summaries may call the LLM (up to 20 s).
-      read-timeout: 30s
+      # 70 s: a sleeping free-tier backend can take about a minute to wake up and answer.
+      read-timeout: 70s
   ai:
     mcp:
       server:
@@ -34,6 +42,7 @@ spring:
           prompt: false
           completion: false
         streamable-http:
+          # Do not change: the web app's "Use CineCircle with Claude" panel and the README point here.
           mcp-endpoint: /mcp
         # Tools are registered with Spring AI @Tool + ToolCallbackProvider (McpToolsConfig), not @McpTool.
         annotation-scanner:

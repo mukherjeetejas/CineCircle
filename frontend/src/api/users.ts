@@ -20,7 +20,7 @@ export function useUserProfile(username: string | undefined) {
     queryKey: qk.user(username ?? ''),
     queryFn: () => apiFetch<UserProfile>(`/users/${enc(username!)}`, { silent: true }),
     enabled: !!username,
-    retry: (count, err) => (err as { status?: number }).status !== 404 && count < 2,
+    retry: false, // apiFetch already retries GETs while the server wakes up
   })
 }
 

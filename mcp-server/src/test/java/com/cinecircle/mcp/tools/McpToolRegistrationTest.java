@@ -22,7 +22,7 @@ class McpToolRegistrationTest extends ToolTestSupport {
 
     private ToolCallback[] callbacks() {
         return new McpToolsConfig()
-                .cineCircleTools(movieTools, reviewTools, userTools, new CineCircleProperties(API, null, null))
+                .cineCircleTools(movieTools, reviewTools, userTools, CineCircleProperties.of(API, null, null))
                 .getToolCallbacks();
     }
 

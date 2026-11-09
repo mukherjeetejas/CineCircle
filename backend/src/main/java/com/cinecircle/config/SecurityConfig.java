@@ -42,6 +42,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                         // "me" routes always require auth (must precede /users/{username} matchers)
                         .requestMatchers("/api/users/me", "/api/users/me/**").authenticated()
                         // public (token optional)
@@ -66,9 +67,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource(AppProperties props) {
         CorsConfiguration config = new CorsConfiguration();
-        List<String> origins = props.cors() == null || props.cors().origins() == null
-                ? List.of("http://localhost:5173") : props.cors().origins();
-        config.setAllowedOrigins(origins);
+        config.setAllowedOrigins(allowedOrigins(props));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setExposedHeaders(List.of("Location"));
@@ -77,6 +76,26 @@ public class SecurityConfig {
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/api/**", config);
         return source;
+    }
+
+    /**
+     * {@code app.cors.origins} ({@code APP_CORS_ORIGINS}, comma-separated). Entries are trimmed, a trailing slash
+     * is dropped (browsers send origins without one) and blanks are ignored.
+     */
+    public static List<String> allowedOrigins(AppProperties props) {
+        List<String> raw = props.cors() == null || props.cors().origins() == null
+                ? List.of() : props.cors().origins();
+        List<String> out = raw.stream()
+                .flatMap(o -> java.util.Arrays.stream(o.split(",")))
+                .map(String::strip)
+                .map(o -> o.endsWith("/") ? o.substring(0, o.length() - 1) : o)
+                .filter(o -> !o.isEmpty())
+                .distinct()
+                .toList();
+        if (out.isEmpty()) {
+            throw new IllegalStateException("app.cors.origins must list at least one origin");
+        }
+        return out;
     }
 
     @Bean

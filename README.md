@@ -46,7 +46,19 @@ The backend reads these environment variables. See [`backend/.env.example`](back
 | `TMDB_API_TOKEN` | recommended | *(empty)* | TMDB v4 read token. Without it the app still starts, but movie endpoints return `502 TMDB_UNAVAILABLE` and no demo reviews are seeded. |
 | `MONGODB_URI` | no | `mongodb://localhost:27017/cinecircle` | MongoDB connection string, including the database name. |
 | `APP_SEED` | no | `true` | Seed demo data on startup (see [Demo data](#demo-data)). |
-| `APP_PUBLIC_URL` | no | `http://localhost:8080` | Base URL used to build absolute image URLs. |
+| `APP_PUBLIC_BASE_URL` | no | `http://localhost:8080` | Public base URL of the backend, used to build absolute image URLs. |
+| `CINECIRCLE_LLM_API_KEY` | no | *(empty)* | Anthropic API key for AI summaries and spoiler checks. Without it AI features are disabled. |
+| `PORT` | no | `8080` | HTTP port (set automatically by Render). |
+| `APP_CORS_ORIGINS` | no | `http://localhost:5173` | Allowed frontend origin(s), comma-separated. |
+| `IMAGE_MAX_BYTES` | no | `5242880` | Maximum upload size per image (production: `1048576`). |
+| `IMAGE_STORAGE_LIMIT_MB` | no | `300` | Total image storage cap; uploads beyond it get `507 STORAGE_FULL`. |
+| `LLM_DAILY_CALL_LIMIT` | no | `150` | Maximum AI calls per UTC day. |
+| `LIMIT_POSTS_PER_DAY` | no | `10` | Reviews per user per day (`429 RATE_LIMITED` beyond). |
+| `LIMIT_COMMENTS_PER_DAY` | no | `50` | Comments per user per day. |
+| `LIMIT_REGISTER_PER_HOUR` | no | `5` | Sign-ups per IP per hour. |
+| `LIMIT_LOGIN_PER_MINUTE` | no | `10` | Login attempts per IP per minute. |
+
+For hosting (Render, Cloudflare Pages, Atlas), see [`DEPLOY-GUIDE.md`](DEPLOY-GUIDE.md).
 
 To set them permanently on Windows (open a new terminal afterwards):
 

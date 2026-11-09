@@ -8,9 +8,10 @@ TMDB or the LLM, so every visibility, ownership and movie-validation rule is sti
 backend: Claude sees exactly what your account can see in the web app.
 
 - Java 21, Spring Boot 3.5.7, Spring AI 1.1.8 (`spring-ai-starter-mcp-server-webmvc`)
-- Port **8090**
+- Port **8090** (`PORT`)
 - **MCP endpoint (Streamable HTTP): `http://localhost:8090/mcp`**
 - `stdio` Spring profile for Claude Desktop
+- Health check: `GET http://localhost:8090/health` → `200 {"status":"ok"}` (no auth)
 
 ## Run
 
@@ -37,11 +38,23 @@ Tests: `mvn test` (no backend needed; uses `MockRestServiceServer`).
 
 | Variable | Required | Default | Purpose |
 |---|---|---|---|
-| `CINECIRCLE_API_URL` | no | `http://localhost:8080/api` | CineCircle REST API base URL |
-| `CINECIRCLE_TOKEN` | no | — | Your CineCircle access token (JWT). Sent as `Authorization: Bearer` on every call. Needed for the write tools. Never logged and never shown in tool output. |
+| `PORT` | no | `8090` | HTTP port (Render sets it) |
+| `CINECIRCLE_API_URL` | no | `http://localhost:8080/api` | CineCircle REST API base URL. Hosted: `https://<backend>.onrender.com/api` |
+| `CINECIRCLE_WEB_URL` | no | `http://localhost:5173` | Web app base URL used for review / movie / user links in tool output. Hosted: `https://<project>.pages.dev` |
+| `CINECIRCLE_TOKEN` | no | — | Your CineCircle access token (JWT) for local use. Sent as `Authorization: Bearer` when the caller didn't send its own token. Never logged and never shown in tool output. |
+| `MCP_ALLOW_ENV_TOKEN` | no | `true` | Whether `CINECIRCLE_TOKEN` may be used at all. **Must be `false` on a hosted server** (the Docker image sets `false`). |
+| `MCP_RATE_LIMIT_PER_MINUTE` | no | `60` | Tool calls per client IP per minute over HTTP (first `X-Forwarded-For` entry, else remote address). Over the limit → tool error `RATE_LIMITED: Slow down …`. `0` disables. |
 
-Without a token only the read tools work, and you see public content only. The write tools answer
-"Set CINECIRCLE_TOKEN to post as your account."
+Which token a tool call uses:
+
+- **HTTP** (Claude Code, Inspector, hosted): the `Authorization: Bearer <token>` header of **that** MCP
+  request, forwarded to the backend for that call only. Without a header: `CINECIRCLE_TOKEN` if
+  `MCP_ALLOW_ENV_TOKEN=true`, otherwise read-only and the write tools answer
+  "Add your CineCircle token: see Settings → Use CineCircle with Claude".
+- **stdio** (Claude Desktop): `CINECIRCLE_TOKEN` (if `MCP_ALLOW_ENV_TOKEN=true`). Without it the write
+  tools answer "Set CINECIRCLE_TOKEN to post as your account."
+
+Without a token only the read tools work, and you see public content only.
 
 PowerShell (current session):
 
@@ -73,16 +86,67 @@ after 7 days.
      -Body '{"usernameOrEmail":"alice","password":"password123"}').token
   ```
 
-## Claude Code (HTTP)
+## Claude Code (HTTP, local)
 
-Start the server (with `CINECIRCLE_TOKEN` set in its environment if you want to post), then:
+Start the server, then either send your token with each request:
+
+```bash
+claude mcp add --transport http cinecircle http://localhost:8090/mcp --header "Authorization: Bearer <your token>"
+```
+
+or set `CINECIRCLE_TOKEN` in the **server's** environment before `mvn spring-boot:run` / `java -jar`
+and add it without a header:
 
 ```bash
 claude mcp add --transport http cinecircle http://localhost:8090/mcp
 ```
 
-Check with `claude mcp list`. In HTTP mode the token is read by the **server** process, not by
-Claude Code, so set `CINECIRCLE_TOKEN` before `mvn spring-boot:run` / `java -jar`.
+Check with `claude mcp list`.
+
+## Hosted (Render)
+
+| | URL |
+|---|---|
+| MCP endpoint (Streamable HTTP) | `https://<mcp>.onrender.com/mcp` |
+| Health check | `https://<mcp>.onrender.com/health` |
+| Backend API it calls (`CINECIRCLE_API_URL`) | `https://<backend>.onrender.com/api` |
+| Links in tool output (`CINECIRCLE_WEB_URL`) | `https://<project>.pages.dev` |
+
+On the hosted server every caller uses **their own** token, sent in the `Authorization` header of
+their MCP requests (`MCP_ALLOW_ENV_TOKEN=false`, no `CINECIRCLE_TOKEN`). Get your token in the web app
+under **Settings → Use CineCircle with Claude**.
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http cinecircle https://<mcp>.onrender.com/mcp --header "Authorization: Bearer <your token>"
+```
+
+**Read-only without a token:** the same command without `--header`:
+
+```bash
+claude mcp add --transport http cinecircle https://<mcp>.onrender.com/mcp
+```
+
+or, in Claude apps, add `https://<mcp>.onrender.com/mcp` as a custom connector if your plan supports
+custom connectors. You can then search movies and read public reviews and summaries; the write
+tools reply "Add your CineCircle token: see Settings → Use CineCircle with Claude".
+
+**Note:** free hosting sleeps when idle, so the first call after a break may take **~1–2 minutes**
+(both the MCP server and the backend wake up). The server waits up to 70 s for the backend and
+retries once after 5 s; if it is still asleep the tool says
+"CineCircle is waking up — try again in a minute."
+
+### Docker
+
+```bash
+docker build -t cinecircle-mcp mcp-server
+docker run -p 8090:8090 -e CINECIRCLE_API_URL=https://<backend>.onrender.com/api \
+  -e CINECIRCLE_WEB_URL=https://<project>.pages.dev cinecircle-mcp
+```
+
+The image runs as a non-root user, is sized for 512 MB (`JAVA_TOOL_OPTIONS`) and sets
+`MCP_ALLOW_ENV_TOKEN=false`.
 
 ## Claude Desktop (stdio)
 
@@ -122,7 +186,8 @@ nothing but MCP messages to stdout; logs go to `<java.io.tmpdir>/cinecircle-mcp.
 npx @modelcontextprotocol/inspector
 ```
 
-Choose transport **Streamable HTTP**, URL `http://localhost:8090/mcp`, connect, then **List Tools**.
+Choose transport **Streamable HTTP**, URL `http://localhost:8090/mcp`, connect, then **List Tools**. To act as
+your account, add the header `Authorization: Bearer <your token>` in the Inspector's authentication settings.
 
 ## Tools
 
@@ -138,7 +203,7 @@ Read tools (always available):
 | `get_popular_reviews` | `window` (`day`\|`week`\|`all`, default `week`), `limit` (1–20, default 10) | `GET /posts/popular` |
 | `get_user_profile` | `username` | `GET /users/{username}` |
 
-Write tools (need `CINECIRCLE_TOKEN`):
+Write tools (need a token: the `Authorization` header over HTTP, or `CINECIRCLE_TOKEN` locally):
 
 | Tool | Params | Backend call |
 |---|---|---|
@@ -147,7 +212,7 @@ Write tools (need `CINECIRCLE_TOKEN`):
 | `comment_on_review` | `postId`, `body` | `POST /posts/{id}/comments` |
 
 Output is compact text. Reviews show author, rating, title, review text up to 300 characters (a
-preview; the link opens the full review), upvotes and a link `http://localhost:5173/posts/{id}`.
+preview; the link opens the full review), upvotes and a link `<CINECIRCLE_WEB_URL>/posts/{id}` (locally `http://localhost:5173/posts/{id}`).
 
 ### Spoilers
 
@@ -163,4 +228,12 @@ reports the AI spoiler check result of the new review.
 
 Backend errors come back as tool errors that include the backend code, e.g.
 `CineCircle error MOVIE_NOT_FOUND: ...`, `NOT_ENOUGH_REVIEWS`, `UNAUTHORIZED` (token missing or
-expired). If the backend is down: `CineCircle API is not reachable at http://localhost:8080/api`.
+expired), `RATE_LIMITED` (slow down: more than `MCP_RATE_LIMIT_PER_MINUTE` calls per minute from your IP).
+
+Backend asleep or down: backend calls use a 70 s read timeout. On a connect error or a gateway
+502/503/504 (a proxy answer, not a CineCircle error such as `TMDB_UNAVAILABLE`) the call is retried
+once after 5 s; if it still fails the tool says
+`CineCircle is waking up — try again in a minute. (CineCircle API at <url>: not reachable)`.
+`create_review` and `comment_on_review` are only retried when the request never reached the server
+(connect error), so nothing is ever posted twice. A read timeout gives
+`CineCircle API is not reachable at <url>`.

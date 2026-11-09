@@ -39,10 +39,13 @@ import java.util.concurrent.locks.ReentrantLock;
  * {@code containsSpoilers} nor AI status SPOILER) and AI status not PENDING. Missing status (pre-v2) counts as
  * UNCHECKED and is eligible.
  *
- * <p>Cache: a stored summary is served while it is younger than 24 h, the eligible count differs from
- * {@code basedOnCount} by fewer than 5, <b>and every post it was generated from is still eligible</b>
- * ({@code sourcePostIds}); otherwise it is regenerated. One regeneration per tmdbId at a time (in-memory lock):
- * concurrent callers get the existing copy if it is still verifiable, otherwise they wait.
+ * <p>Cache (DEPLOY.md, replaces the v2 rule): a summary is (re)generated only when none exists, or when the
+ * eligible count differs from {@code basedOnCount} <b>and</b> the stored copy is at least 1 hour old - never just
+ * because time passed. Privacy still wins: a stored summary is only served while <b>every post it was generated
+ * from is still eligible</b> ({@code sourcePostIds}); an unverifiable copy can never be shown, so it is treated
+ * like a missing one. One regeneration per tmdbId at a time (in-memory lock): concurrent callers get the existing
+ * copy if it is still verifiable, otherwise they wait. When today's AI call cap is used up the regeneration fails
+ * like any LLM error (stale copy or 502).
  *
  * <p>Fallback: if regeneration fails (LLM error, timeout, invalid JSON or no key) the last saved summary is
  * returned with {@code stale: true} - but only if all its source posts are still eligible. A summary whose
@@ -55,8 +58,8 @@ import java.util.concurrent.locks.ReentrantLock;
 public class ReviewSummaryService {
 
     public static final int MIN_REVIEWS = 3;
-    public static final Duration MAX_AGE = Duration.ofHours(24);
-    public static final int COUNT_DRIFT = 5;
+    /** A summary younger than this is never regenerated (DEPLOY.md cost protection). */
+    public static final Duration MIN_REGENERATION_AGE = Duration.ofHours(1);
     static final int TOP_LIMIT = 30;
     static final int NEWEST_LIMIT = 20;
     static final int MAX_BODY_CHARS = 1500;
@@ -122,10 +125,18 @@ public class ReviewSummaryService {
         }
     }
 
+    /**
+     * DEPLOY.md rule (replaces the v2 24 h / +5 rule): a stored summary is regenerated only when the eligible-post
+     * count differs from {@code basedOnCount} (any difference) <b>and</b> it is at least 1 hour old. Time alone
+     * never triggers a regeneration.
+     */
     boolean isFresh(MovieReviewSummary s, long eligibleCount) {
-        return s.getGeneratedAt() != null
-                && s.getGeneratedAt().isAfter(clock.instant().minus(MAX_AGE))
-                && Math.abs(eligibleCount - s.getBasedOnCount()) < COUNT_DRIFT;
+        if (s.getGeneratedAt() == null) {
+            return false;
+        }
+        boolean countChanged = eligibleCount != s.getBasedOnCount();
+        boolean oldEnough = !s.getGeneratedAt().isAfter(clock.instant().minus(MIN_REGENERATION_AGE));
+        return !(countChanged && oldEnough);
     }
 
     /**

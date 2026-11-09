@@ -3,6 +3,8 @@ package com.cinecircle.auth;
 import com.cinecircle.auth.dto.AuthResponse;
 import com.cinecircle.auth.dto.LoginRequest;
 import com.cinecircle.auth.dto.RegisterRequest;
+import com.cinecircle.common.ClientIp;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -21,12 +23,12 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest req) {
-        return authService.register(req);
+    public AuthResponse register(@Valid @RequestBody RegisterRequest req, HttpServletRequest http) {
+        return authService.register(req, ClientIp.of(http));
     }
 
     @PostMapping("/login")
-    public AuthResponse login(@Valid @RequestBody LoginRequest req) {
-        return authService.login(req);
+    public AuthResponse login(@Valid @RequestBody LoginRequest req, HttpServletRequest http) {
+        return authService.login(req, ClientIp.of(http));
     }
 }

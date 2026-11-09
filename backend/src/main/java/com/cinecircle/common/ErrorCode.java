@@ -19,6 +19,10 @@ public enum ErrorCode {
     NOT_ENOUGH_REVIEWS(HttpStatus.NOT_FOUND),
     /** v2: AI summary could not be generated (LLM disabled, failed, timed out or invalid JSON). */
     SUMMARY_UNAVAILABLE(HttpStatus.BAD_GATEWAY),
+    /** v4: an in-memory rate limit (posts/comments per day, register/login per IP) was exceeded. */
+    RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS),
+    /** v4: the GridFS images bucket reached app.images.storage-limit-mb. */
+    STORAGE_FULL(HttpStatus.INSUFFICIENT_STORAGE),
     /** Unexpected server errors (500). */
     INTERNAL_ERROR(HttpStatus.INTERNAL_SERVER_ERROR);
 

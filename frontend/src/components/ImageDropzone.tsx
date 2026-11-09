@@ -1,6 +1,6 @@
 import { ImagePlus, X } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type DragEvent } from 'react'
-import { cn, validateImage } from '../lib/utils'
+import { cn, MAX_IMAGE_LABEL, validateImage } from '../lib/utils'
 
 interface Props {
   file: File | null
@@ -91,7 +91,7 @@ export function ImageDropzone({ file, onChange, error }: Props) {
         <span className="font-medium">
           Drop an image here or <span className="text-amber underline-offset-2 hover:underline">browse</span>
         </span>
-        <span className="text-xs text-muted">JPEG, PNG or WebP · up to 5 MB</span>
+        <span className="text-xs text-muted">JPEG, PNG or WebP · up to {MAX_IMAGE_LABEL}</span>
         <input
           ref={inputRef}
           id={id}
